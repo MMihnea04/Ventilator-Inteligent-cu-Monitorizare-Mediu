@@ -3,8 +3,9 @@
 #include <stdio.h>
 #include "adc.h"
 #include "pwm.h"
+#include "lcd_i2c.h"
 
-// Pini
+// pini
 #define MQ2_DO_PIN      PB4
 #define LED_GREEN_PIN   PD3
 #define LED_YELLOW_PIN  PD4
@@ -57,11 +58,19 @@ int main(void) {
     pwm_init();
     gpio_init();
     uart_init(); 
+    lcd_init(); // init lcd
     
     uint8_t current_mode = 0; 
     char debug_buffer[80]; 
+    char lcd_buffer[16]; // pt afisare lcd
     
     uart_print("\r\n--- SISTEM INTELIGENT PREZENTARE (PRAGURI OPTIMIZATE) ---\r\n");
+    
+    // mesaj de pornire lcd
+    lcd_set_cursor(0, 0);
+    lcd_print("Sistem Activat!");
+    _delay_ms(1500);
+    lcd_clear();
     
     static float smoothed_temp = -1.0; 
     
@@ -102,10 +111,18 @@ int main(void) {
                 temp_int, temp_dec, adc_mq2, digital_mq2_pin, alarm_active ? "DA" : "NU");
         uart_print(debug_buffer);
 
+        // update lcd
+        lcd_set_cursor(0, 0);
+        sprintf(lcd_buffer, "Temp: %d.%d\xDF""C   ", temp_int, temp_dec); // \xDF e simbolul de grade
+        lcd_print(lcd_buffer);
+        
+        lcd_set_cursor(1, 0); // linia a 2-a
+
         PORTD &= ~((1 << LED_GREEN_PIN) | (1 << LED_YELLOW_PIN) | (1 << LED_RED_PIN));
 
-        // Logica prioritara actiune
+        // logica prioritara actiune
         if (alarm_active) { 
+            lcd_print("ALARMA GAZ!     ");
             pwm_set_duty(PWM_MAX);
             PORTD |= (1 << LED_RED_PIN);
             _delay_ms(250);
@@ -126,14 +143,17 @@ int main(void) {
             }
 
             if (current_mode == 0) {
+                lcd_print("Stare: Normal   ");
                 pwm_set_duty(PWM_OFF);
                 PORTD |= (1 << LED_GREEN_PIN); 
             } 
             else if (current_mode == 1) {
+                lcd_print("Viteza Medie    ");
                 pwm_set_duty(PWM_MEDIUM);
                 PORTD |= (1 << LED_YELLOW_PIN); 
             } 
             else {
+                lcd_print("Temperatura MAX!");
                 pwm_set_duty(PWM_MAX);
                 PORTD |= (1 << LED_RED_PIN); 
             }
